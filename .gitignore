@@ -1,0 +1,27 @@
+# Maven
+backend/target/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Local Spring configuration
+backend/src/main/resources/application-local.properties
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

@@ -11,8 +11,8 @@
 	<groupId>com.busy</groupId>
 	<artifactId>event-registration</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name/>
-	<description/>
+	<name>Event Registration System</name>
+<description>Event Registration System for conferences and workshops</description>
 	<url/>
 	<licenses>
 		<license/>
