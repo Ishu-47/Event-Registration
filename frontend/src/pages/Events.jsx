@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createEvent, deleteEvent, getEvents } from "../services/eventServices";
-
+import { Link } from "react-router-dom";
 
 export default function Events() {
 
@@ -218,12 +218,23 @@ export default function Events() {
                                     </p>
                                 </div>
 
-                                <button
-                                    onClick={() => handleDelete(event.id)}
-                                    className="mt-5 text-sm text-gray-500 hover:text-red-400"
-                                >
-                                    Delete
-                                </button>
+                                <div className="mt-5 flex items-center justify-between">
+
+                                    <Link
+                                        to={`/events/${event.id}/sessions`}
+                                        className="text-sm text-white hover:underline"
+                                    >
+                                        View sessions →
+                                    </Link>
+
+                                    <button
+                                        onClick={() => handleDelete(event.id)}
+                                        className="text-sm text-gray-500 hover:text-red-400"
+                                    >
+                                        Delete
+                                    </button>
+
+                                </div>
 
                             </div>
 

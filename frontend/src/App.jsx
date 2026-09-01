@@ -5,6 +5,7 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Events from "./pages/Events";
 import Layout from "./components/Layout";
+import Sessions from "./pages/Sessions";
 
 function ProtectedRoute({ children }) {
 
@@ -59,6 +60,11 @@ function App() {
         <Route
           path="events"
           element={<Events />}
+        />
+
+        <Route
+          path="events/:eventId/sessions"
+          element={<Sessions />}
         />
 
       </Route>

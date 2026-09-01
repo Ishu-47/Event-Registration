@@ -17,7 +17,7 @@ export default function Layout() {
     return (
         <div className="min-h-screen bg-black text-white flex">
 
-            
+
             <aside className="w-64 border-r border-neutral-800 hidden md:flex flex-col">
 
                 <div className="p-6 border-b border-neutral-800">
@@ -54,6 +54,8 @@ export default function Layout() {
                     >
                         Registrations
                     </Link>
+
+
 
                 </nav>
 
