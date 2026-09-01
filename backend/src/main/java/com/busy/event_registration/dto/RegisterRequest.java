@@ -23,4 +23,6 @@ public class RegisterRequest {
     @Size(min = 8, max = 100, message = "Password must contain at least 8 characters")
     private String password;
 
+    private String invitationToken;
+
 }

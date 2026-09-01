@@ -1,25 +1,27 @@
 import { useState } from "react";
 import { register } from "../services/auth";
 
-export default function Register({onRegistered, onLogin}){
-    const [form, setForm] = useState({name: "", email: "", password: ""});
+export default function Register({ onRegistered, onLogin }) {
+    const [form, setForm] = useState({ name: "", email: "", password: "" });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("")
 
-    function handleChange(e){
+    const invitationToken = new URLSearchParams(window.location.search).get("invite");
+
+    function handleChange(e) {
         setForm({
             ...form,
             [e.target.name]: e.target.value,
         });
     }
-    async function handleSubmit(e){
+    async function handleSubmit(e) {
         e.preventDefault();
         setError("");
         setLoading(true);
-        try{
-            const user = await register(form.name, form.email, form.password);
+        try {
+            const user = await register(form.name, form.email, form.password, invitationToken);
             onRegistered(user);
-        } catch(err){
+        } catch (err) {
             setError(err.message);
         } finally {
             setLoading(false);
@@ -36,7 +38,9 @@ export default function Register({onRegistered, onLogin}){
                     </h1>
 
                     <p className="text-gray-400 mt-2">
-                        Join the event management platform.
+                        {invitationToken
+                            ? "You've been invited as an organizer."
+                            : "Create an account to get started."}
                     </p>
                 </div>
 
@@ -121,8 +125,9 @@ export default function Register({onRegistered, onLogin}){
                 </form>
 
                 <p className="text-center text-xs text-gray-600 mt-5">
-                    New accounts are created as check-in staff.
-                    Organizer access requires an invitation.
+                    {invitationToken
+                        ? "Your organizer invitation will be verified during registration."
+                        : "New accounts are created as check-in staff. Organizer access requires an invitation."}
                 </p>
 
             </div>
