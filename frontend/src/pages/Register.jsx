@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { register } from "../services/auth";
+import { useNavigate } from "react-router-dom";
 
 export default function Register({ onRegistered, onLogin }) {
     const [form, setForm] = useState({ name: "", email: "", password: "" });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("")
+    const navigate = useNavigate();
 
     const invitationToken = new URLSearchParams(window.location.search).get("invite");
 
@@ -20,7 +22,7 @@ export default function Register({ onRegistered, onLogin }) {
         setLoading(true);
         try {
             const user = await register(form.name, form.email, form.password, invitationToken);
-            onRegistered(user);
+            navigate("/dashboard");
         } catch (err) {
             setError(err.message);
         } finally {
@@ -115,7 +117,7 @@ export default function Register({ onRegistered, onLogin }) {
                         Already have an account?{" "}
                         <button
                             type="button"
-                            onClick={onLogin}
+                            onClick={() => navigate("/login")}
                             className="text-white hover:underline"
                         >
                             Sign in

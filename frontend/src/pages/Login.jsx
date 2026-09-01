@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { login } from "../services/auth";
+import { useNavigate } from "react-router-dom";
 
-export default function Login({ onLoggedIn, onRegister }) {
+export default function Login() {
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+    const navigate = useNavigate();
 
     async function handleSubmit(e) {
         e.preventDefault();
@@ -16,7 +18,7 @@ export default function Login({ onLoggedIn, onRegister }) {
 
         try {
             const user = await login(email, password);
-            onLoggedIn(user);
+            navigate("/dashboard");
         } catch (err) {
             setError(err.message);
         } finally {
@@ -92,7 +94,7 @@ export default function Login({ onLoggedIn, onRegister }) {
                         Don't have an account?{" "}
                         <button
                             type="button"
-                            onClick={onRegister}
+                            onClick={() => navigate("/register")}
                             className="text-white hover:underline"
                         >
                             Create one
