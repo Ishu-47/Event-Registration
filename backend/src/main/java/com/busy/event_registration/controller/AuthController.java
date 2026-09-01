@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.busy.event_registration.dto.LoginRequest;
 import com.busy.event_registration.dto.LoginResponse;
+import com.busy.event_registration.dto.RegisterRequest;
 import com.busy.event_registration.service.AuthService;
 
 import jakarta.validation.Valid;
@@ -21,5 +22,9 @@ public class AuthController {
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request){
         return authService.login(request);
+    }
+    @PostMapping("/register")
+    public LoginResponse register(@Valid @RequestBody RegisterRequest request){
+        return authService.register(request);
     }
 }
