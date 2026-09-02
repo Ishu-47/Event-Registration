@@ -11,6 +11,8 @@ import com.busy.event_registration.repository.RegistrationRepository;
 import com.busy.event_registration.repository.SessionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -23,16 +25,14 @@ public class RegistrationService {
 
     private final RegistrationRepository registrationRepository;
     private final SessionRepository sessionRepository;
+    private final SessionStaffAssignmentService assignmentService;
 
     @Transactional
-    public RegistrationResponse register(
-            Long sessionId,
-            RegistrationRequest request) {
-
+    public RegistrationResponse register(Long sessionId, RegistrationRequest request, Authentication authentication) {
+        verifyCanManageSession(sessionId, authentication);
         Session session = sessionRepository
                 .findByIdForUpdate(sessionId)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Session not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Session not found"));
 
         String email = request.getEmail()
                 .toLowerCase()
@@ -41,7 +41,6 @@ public class RegistrationService {
         registrationRepository
                 .findBySessionIdAndEmail(sessionId, email)
                 .ifPresent(existing -> {
-
                     if (existing.getStatus() == RegistrationStatus.RESERVED ||
                             existing.getStatus() == RegistrationStatus.CONFIRMED) {
 
@@ -52,9 +51,7 @@ public class RegistrationService {
 
         long activeRegistrations = registrationRepository.countBySessionIdAndStatusIn(
                 sessionId,
-                List.of(
-                        RegistrationStatus.RESERVED,
-                        RegistrationStatus.CONFIRMED));
+                List.of(RegistrationStatus.RESERVED, RegistrationStatus.CONFIRMED));
 
         if (activeRegistrations >= session.getCapacity()) {
             throw new CapacityExceededException(
@@ -73,21 +70,20 @@ public class RegistrationService {
                 .expiresAt(now.plusMinutes(5))
                 .build();
 
-        return toResponse(
-                registrationRepository.save(registration));
+        return toResponse(registrationRepository.save(registration));
     }
 
     @Transactional
-    public RegistrationResponse confirm(String confirmationCode) {
+    public RegistrationResponse confirm(String confirmationCode, Authentication authentication) {
 
         Registration registration = registrationRepository
                 .findByConfirmationCode(confirmationCode)
                 .orElseThrow(() -> new RegistrationNotFoundException(
                         "Registration not found"));
+        verifyCanManageSession(registration.getSession().getId(), authentication);
 
         if (registration.getStatus() != RegistrationStatus.RESERVED) {
-            throw new IllegalArgumentException(
-                    "Registration cannot be confirmed");
+            throw new IllegalArgumentException("Registration cannot be confirmed");
         }
 
         if (registration.getExpiresAt()
@@ -98,8 +94,7 @@ public class RegistrationService {
 
             registrationRepository.save(registration);
 
-            throw new IllegalArgumentException(
-                    "Reservation has expired");
+            throw new IllegalArgumentException("Reservation has expired");
         }
 
         registration.setStatus(
@@ -136,24 +131,79 @@ public class RegistrationService {
     }
 
     @Transactional
-    public RegistrationResponse cancel(Long id) {
+    public RegistrationResponse cancel(Long id, Authentication authentication) {
 
         Registration registration = registrationRepository.findById(id)
-                .orElseThrow(() -> new RegistrationNotFoundException(
-                        "Registration not found"));
+                .orElseThrow(() -> new RegistrationNotFoundException("Registration not found"));
+
+        verifyCanManageSession(registration.getSession().getId(), authentication);
 
         if (registration.getStatus() == RegistrationStatus.CANCELLED) {
-            throw new IllegalArgumentException(
-                    "Registration is already cancelled");
+            throw new IllegalArgumentException("Registration is already cancelled");
         }
 
-        registration.setStatus(
-                RegistrationStatus.CANCELLED);
+        registration.setStatus(RegistrationStatus.CANCELLED);
 
-        registration.setCancelledAt(
-                LocalDateTime.now());
+        registration.setCancelledAt(LocalDateTime.now());
 
-        return toResponse(
-                registrationRepository.save(registration));
+        return toResponse(registrationRepository.save(registration));
+    }
+
+    @Transactional
+    public RegistrationResponse checkIn(Long id, Authentication authentication) {
+
+        Registration registration = registrationRepository.findById(id)
+                .orElseThrow(() -> new RegistrationNotFoundException("Registration not found"));
+
+        verifyCanManageSession(registration.getSession().getId(), authentication);
+
+        if (registration.getStatus() != RegistrationStatus.CONFIRMED) {
+
+            throw new IllegalArgumentException("Only confirmed registrations can be checked in");
+        }
+
+        registration.setStatus(RegistrationStatus.CHECKED_IN);
+
+        registration.setCheckedInAt(LocalDateTime.now());
+
+        return toResponse(registrationRepository.save(registration));
+    }
+
+    private void verifyCanManageSession(Long sessionId, Authentication authentication) {
+
+        String role = authentication.getAuthorities()
+                .stream()
+                .findFirst()
+                .map(Object::toString)
+                .orElse("");
+
+        if (role.equals("ROLE_ORGANIZER")) {
+            return;
+        }
+
+        if (role.equals("ROLE_CHECK_IN_STAFF")) {
+
+            Long staffId = Long.parseLong(authentication.getName());
+
+            if (!assignmentService.isAssigned(sessionId, staffId)) {
+
+                throw new AccessDeniedException("You are not assigned to this session");
+            }
+
+            return;
+        }
+
+        throw new AccessDeniedException("You are not allowed to manage registrations");
+    }
+
+    public List<RegistrationResponse> getBySession(Long sessionId, Authentication authentication) {
+
+        verifyCanManageSession(sessionId, authentication);
+
+        return registrationRepository
+                .findBySessionId(sessionId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
     }
 }

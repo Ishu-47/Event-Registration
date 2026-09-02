@@ -2,7 +2,7 @@ package com.busy.event_registration.repository;
 
 import com.busy.event_registration.entity.Registration;
 import com.busy.event_registration.entity.RegistrationStatus;
-import jakarta.persistence.LockModeType;
+// import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 

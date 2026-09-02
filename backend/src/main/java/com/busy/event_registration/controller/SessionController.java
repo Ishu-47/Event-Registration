@@ -6,6 +6,7 @@ import com.busy.event_registration.service.SessionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -13,7 +14,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ORGANIZER')")
+
 public class SessionController {
 
     private final SessionService sessionService;
@@ -41,5 +42,14 @@ public class SessionController {
     @DeleteMapping("/sessions/{id}")
     public void delete(@PathVariable Long id) {
         sessionService.delete(id);
+    }
+
+    @GetMapping("/sessions/my-sessions")
+    @PreAuthorize("hasRole('CHECK_IN_STAFF')")
+    public List<SessionResponse> getMySessions(Authentication authentication) {
+
+        Long staffId = Long.parseLong(authentication.getName());
+
+        return sessionService.getMySessions(staffId);
     }
 }

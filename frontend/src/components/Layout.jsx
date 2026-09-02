@@ -48,6 +48,15 @@ export default function Layout() {
                         </Link>
                     )}
 
+                    {user?.role === "CHECK_IN_STAFF" && (
+                        <Link
+                            to="/my-sessions"
+                            className="block px-4 py-3 rounded-lg text-gray-300 hover:bg-neutral-900 hover:text-white"
+                        >
+                            My Sessions
+                        </Link>
+                    )}
+
                     <Link
                         to="/registrations"
                         className="block px-4 py-3 rounded-lg text-gray-300 hover:bg-neutral-900 hover:text-white"

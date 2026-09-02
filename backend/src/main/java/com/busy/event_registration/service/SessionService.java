@@ -4,8 +4,11 @@ import com.busy.event_registration.dto.SessionRequest;
 import com.busy.event_registration.dto.SessionResponse;
 import com.busy.event_registration.entity.Event;
 import com.busy.event_registration.entity.Session;
+import com.busy.event_registration.entity.SessionStaffAssignment;
 import com.busy.event_registration.repository.EventRepository;
 import com.busy.event_registration.repository.SessionRepository;
+import com.busy.event_registration.repository.SessionStaffAssignmentRepository;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +20,7 @@ public class SessionService {
 
     private final SessionRepository sessionRepository;
     private final EventRepository eventRepository;
+    private final SessionStaffAssignmentRepository assignmentRepository;
 
     public SessionResponse create(Long eventId, SessionRequest request) {
 
@@ -99,4 +103,15 @@ public class SessionService {
                 .capacity(session.getCapacity())
                 .build();
     }
+
+    public List<SessionResponse> getMySessions(Long staffId) {
+
+        return assignmentRepository
+                .findByStaffId(staffId)
+                .stream()
+                .map(SessionStaffAssignment::getSession)
+                .map(this::toResponse)
+                .toList();
+    }
+
 }

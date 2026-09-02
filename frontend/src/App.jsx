@@ -5,7 +5,9 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Events from "./pages/Events";
 import Layout from "./components/Layout";
+import MySessions from "./pages/MySessions";
 import Sessions from "./pages/Sessions";
+import SessionRegistrations from "./pages/SessionRegistrations";
 
 function ProtectedRoute({ children }) {
 
@@ -65,6 +67,15 @@ function App() {
         <Route
           path="events/:eventId/sessions"
           element={<Sessions />}
+        />
+        <Route
+          path="my-sessions"
+          element={<MySessions />}
+        />
+
+        <Route
+          path="sessions/:sessionId/registrations"
+          element={<SessionRegistrations />}
         />
 
       </Route>

@@ -1,7 +1,7 @@
 const API_URL = "http://localhost:8080/api";
 
 export async function login(email, password){
-    const response = await fetch(`${API_URL}`/auth/login, {
+    const response = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
         headers: {
             "Content-Type" : "application/json",
