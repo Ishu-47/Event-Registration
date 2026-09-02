@@ -6,10 +6,10 @@ import com.busy.event_registration.service.RegistrationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
-import java.util.List;
-
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import com.busy.event_registration.dto.RegistrationPageResponse;
+import com.busy.event_registration.entity.RegistrationStatus;
 
 @RestController
 @RequestMapping("/api/registrations")
@@ -43,12 +43,24 @@ public class RegistrationController {
     }
 
     @GetMapping("/sessions/{sessionId}")
-    public List<RegistrationResponse> getBySession(
+    public RegistrationPageResponse getBySession(
             @PathVariable Long sessionId,
-            Authentication authentication) {
+            Authentication authentication,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) RegistrationStatus status,
+            @RequestParam(defaultValue = "name") String sortBy,
+            @RequestParam(defaultValue = "asc") String direction,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
 
         return registrationService.getBySession(
                 sessionId,
-                authentication);
+                authentication,
+                search,
+                status,
+                sortBy,
+                direction,
+                page,
+                size);
     }
 }

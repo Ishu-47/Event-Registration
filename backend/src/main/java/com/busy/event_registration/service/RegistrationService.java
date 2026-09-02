@@ -14,6 +14,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+
+import com.busy.event_registration.dto.RegistrationPageResponse;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -23,187 +29,261 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class RegistrationService {
 
-    private final RegistrationRepository registrationRepository;
-    private final SessionRepository sessionRepository;
-    private final SessionStaffAssignmentService assignmentService;
+        private final RegistrationRepository registrationRepository;
+        private final SessionRepository sessionRepository;
+        private final SessionStaffAssignmentService assignmentService;
 
-    @Transactional
-    public RegistrationResponse register(Long sessionId, RegistrationRequest request, Authentication authentication) {
-        verifyCanManageSession(sessionId, authentication);
-        Session session = sessionRepository
-                .findByIdForUpdate(sessionId)
-                .orElseThrow(() -> new IllegalArgumentException("Session not found"));
+        @Transactional
+        public RegistrationResponse register(Long sessionId, RegistrationRequest request,
+                        Authentication authentication) {
+                verifyCanManageSession(sessionId, authentication);
+                Session session = sessionRepository
+                                .findByIdForUpdate(sessionId)
+                                .orElseThrow(() -> new IllegalArgumentException("Session not found"));
 
-        String email = request.getEmail()
-                .toLowerCase()
-                .trim();
+                String email = request.getEmail()
+                                .toLowerCase()
+                                .trim();
 
-        registrationRepository
-                .findBySessionIdAndEmail(sessionId, email)
-                .ifPresent(existing -> {
-                    if (existing.getStatus() == RegistrationStatus.RESERVED ||
-                            existing.getStatus() == RegistrationStatus.CONFIRMED) {
+                registrationRepository
+                                .findBySessionIdAndEmail(sessionId, email)
+                                .ifPresent(existing -> {
+                                        if (existing.getStatus() == RegistrationStatus.RESERVED ||
+                                                        existing.getStatus() == RegistrationStatus.CONFIRMED) {
 
-                        throw new IllegalArgumentException(
-                                "You are already registered for this session");
-                    }
-                });
+                                                throw new IllegalArgumentException(
+                                                                "You are already registered for this session");
+                                        }
+                                });
 
-        long activeRegistrations = registrationRepository.countBySessionIdAndStatusIn(
-                sessionId,
-                List.of(RegistrationStatus.RESERVED, RegistrationStatus.CONFIRMED));
+                long activeRegistrations = registrationRepository.countBySessionIdAndStatusIn(
+                                sessionId,
+                                List.of(RegistrationStatus.RESERVED, RegistrationStatus.CONFIRMED,
+                                                RegistrationStatus.CHECKED_IN));
 
-        if (activeRegistrations >= session.getCapacity()) {
-            throw new CapacityExceededException(
-                    "This session is full");
+                if (activeRegistrations >= session.getCapacity()) {
+                        throw new CapacityExceededException(
+                                        "This session is full");
+                }
+
+                LocalDateTime now = LocalDateTime.now();
+
+                Registration registration = Registration.builder()
+                                .session(session)
+                                .name(request.getName().trim())
+                                .email(email)
+                                .status(RegistrationStatus.RESERVED)
+                                .confirmationCode(generateConfirmationCode())
+                                .reservedAt(now)
+                                .expiresAt(now.plusMinutes(5))
+                                .build();
+
+                return toResponse(registrationRepository.save(registration));
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        @Transactional
+        public RegistrationResponse confirm(String confirmationCode, Authentication authentication) {
 
-        Registration registration = Registration.builder()
-                .session(session)
-                .name(request.getName().trim())
-                .email(email)
-                .status(RegistrationStatus.RESERVED)
-                .confirmationCode(generateConfirmationCode())
-                .reservedAt(now)
-                .expiresAt(now.plusMinutes(5))
-                .build();
+                Registration registration = registrationRepository
+                                .findByConfirmationCode(confirmationCode)
+                                .orElseThrow(() -> new RegistrationNotFoundException(
+                                                "Registration not found"));
+                verifyCanManageSession(registration.getSession().getId(), authentication);
 
-        return toResponse(registrationRepository.save(registration));
-    }
+                if (registration.getStatus() != RegistrationStatus.RESERVED) {
+                        throw new IllegalArgumentException("Registration cannot be confirmed");
+                }
 
-    @Transactional
-    public RegistrationResponse confirm(String confirmationCode, Authentication authentication) {
+                if (registration.getExpiresAt()
+                                .isBefore(LocalDateTime.now())) {
 
-        Registration registration = registrationRepository
-                .findByConfirmationCode(confirmationCode)
-                .orElseThrow(() -> new RegistrationNotFoundException(
-                        "Registration not found"));
-        verifyCanManageSession(registration.getSession().getId(), authentication);
+                        registration.setStatus(
+                                        RegistrationStatus.EXPIRED);
 
-        if (registration.getStatus() != RegistrationStatus.RESERVED) {
-            throw new IllegalArgumentException("Registration cannot be confirmed");
+                        registrationRepository.save(registration);
+
+                        throw new IllegalArgumentException("Reservation has expired");
+                }
+
+                registration.setStatus(
+                                RegistrationStatus.CONFIRMED);
+
+                registration.setConfirmedAt(
+                                LocalDateTime.now());
+
+                return toResponse(
+                                registrationRepository.save(registration));
         }
 
-        if (registration.getExpiresAt()
-                .isBefore(LocalDateTime.now())) {
-
-            registration.setStatus(
-                    RegistrationStatus.EXPIRED);
-
-            registrationRepository.save(registration);
-
-            throw new IllegalArgumentException("Reservation has expired");
+        private String generateConfirmationCode() {
+                return UUID.randomUUID()
+                                .toString()
+                                .replace("-", "")
+                                .substring(0, 8)
+                                .toUpperCase();
         }
 
-        registration.setStatus(
-                RegistrationStatus.CONFIRMED);
+        private RegistrationResponse toResponse(Registration registration) {
 
-        registration.setConfirmedAt(
-                LocalDateTime.now());
-
-        return toResponse(
-                registrationRepository.save(registration));
-    }
-
-    private String generateConfirmationCode() {
-        return UUID.randomUUID()
-                .toString()
-                .replace("-", "")
-                .substring(0, 8)
-                .toUpperCase();
-    }
-
-    private RegistrationResponse toResponse(
-            Registration registration) {
-
-        return RegistrationResponse.builder()
-                .id(registration.getId())
-                .sessionId(registration.getSession().getId())
-                .name(registration.getName())
-                .email(registration.getEmail())
-                .status(registration.getStatus())
-                .confirmationCode(
-                        registration.getConfirmationCode())
-                .expiresAt(registration.getExpiresAt())
-                .build();
-    }
-
-    @Transactional
-    public RegistrationResponse cancel(Long id, Authentication authentication) {
-
-        Registration registration = registrationRepository.findById(id)
-                .orElseThrow(() -> new RegistrationNotFoundException("Registration not found"));
-
-        verifyCanManageSession(registration.getSession().getId(), authentication);
-
-        if (registration.getStatus() == RegistrationStatus.CANCELLED) {
-            throw new IllegalArgumentException("Registration is already cancelled");
+                return RegistrationResponse.builder()
+                                .id(registration.getId())
+                                .sessionId(registration.getSession().getId())
+                                .name(registration.getName())
+                                .email(registration.getEmail())
+                                .status(registration.getStatus())
+                                .confirmationCode(
+                                                registration.getConfirmationCode())
+                                .expiresAt(registration.getExpiresAt())
+                                .build();
         }
 
-        registration.setStatus(RegistrationStatus.CANCELLED);
+        @Transactional
+        public RegistrationResponse cancel(Long id, Authentication authentication) {
 
-        registration.setCancelledAt(LocalDateTime.now());
+                Registration registration = registrationRepository.findById(id)
+                                .orElseThrow(() -> new RegistrationNotFoundException("Registration not found"));
 
-        return toResponse(registrationRepository.save(registration));
-    }
+                verifyCanManageSession(registration.getSession().getId(), authentication);
 
-    @Transactional
-    public RegistrationResponse checkIn(Long id, Authentication authentication) {
+                if (registration.getStatus() == RegistrationStatus.CANCELLED) {
+                        throw new IllegalArgumentException("Registration is already cancelled");
+                }
 
-        Registration registration = registrationRepository.findById(id)
-                .orElseThrow(() -> new RegistrationNotFoundException("Registration not found"));
+                registration.setStatus(RegistrationStatus.CANCELLED);
 
-        verifyCanManageSession(registration.getSession().getId(), authentication);
+                registration.setCancelledAt(LocalDateTime.now());
 
-        if (registration.getStatus() != RegistrationStatus.CONFIRMED) {
-
-            throw new IllegalArgumentException("Only confirmed registrations can be checked in");
+                return toResponse(registrationRepository.save(registration));
         }
 
-        registration.setStatus(RegistrationStatus.CHECKED_IN);
+        @Transactional
+        public RegistrationResponse checkIn(Long id, Authentication authentication) {
 
-        registration.setCheckedInAt(LocalDateTime.now());
+                Registration registration = registrationRepository.findById(id)
+                                .orElseThrow(() -> new RegistrationNotFoundException("Registration not found"));
 
-        return toResponse(registrationRepository.save(registration));
-    }
+                verifyCanManageSession(registration.getSession().getId(), authentication);
 
-    private void verifyCanManageSession(Long sessionId, Authentication authentication) {
+                if (registration.getStatus() != RegistrationStatus.CONFIRMED) {
 
-        String role = authentication.getAuthorities()
-                .stream()
-                .findFirst()
-                .map(Object::toString)
-                .orElse("");
+                        throw new IllegalArgumentException("Only confirmed registrations can be checked in");
+                }
 
-        if (role.equals("ROLE_ORGANIZER")) {
-            return;
+                registration.setStatus(RegistrationStatus.CHECKED_IN);
+
+                registration.setCheckedInAt(LocalDateTime.now());
+
+                return toResponse(registrationRepository.save(registration));
         }
 
-        if (role.equals("ROLE_CHECK_IN_STAFF")) {
+        private void verifyCanManageSession(Long sessionId, Authentication authentication) {
 
-            Long staffId = Long.parseLong(authentication.getName());
+                String role = authentication.getAuthorities()
+                                .stream()
+                                .findFirst()
+                                .map(Object::toString)
+                                .orElse("");
 
-            if (!assignmentService.isAssigned(sessionId, staffId)) {
+                if (role.equals("ROLE_ORGANIZER")) {
+                        return;
+                }
 
-                throw new AccessDeniedException("You are not assigned to this session");
-            }
+                if (role.equals("ROLE_CHECK_IN_STAFF")) {
 
-            return;
+                        Long staffId = Long.parseLong(authentication.getName());
+
+                        if (!assignmentService.isAssigned(sessionId, staffId)) {
+
+                                throw new AccessDeniedException("You are not assigned to this session");
+                        }
+
+                        return;
+                }
+
+                throw new AccessDeniedException("You are not allowed to manage registrations");
         }
 
-        throw new AccessDeniedException("You are not allowed to manage registrations");
-    }
+        public RegistrationPageResponse getBySession(
+                        Long sessionId,
+                        Authentication authentication,
+                        String search,
+                        RegistrationStatus status,
+                        String sortBy,
+                        String direction,
+                        int page,
+                        int size) {
 
-    public List<RegistrationResponse> getBySession(Long sessionId, Authentication authentication) {
+                verifyCanManageSession(sessionId, authentication);
 
-        verifyCanManageSession(sessionId, authentication);
+                if (search == null) {
+                        search = "";
+                }
 
-        return registrationRepository
-                .findBySessionId(sessionId)
-                .stream()
-                .map(this::toResponse)
-                .toList();
-    }
+                if (sortBy == null || sortBy.isBlank()) {
+                        sortBy = "name";
+                }
+
+                if (!sortBy.equals("name")
+                                && !sortBy.equals("email")
+                                && !sortBy.equals("status")) {
+
+                        sortBy = "name";
+                }
+
+                Sort.Direction sortDirection = direction != null &&
+                                direction.equalsIgnoreCase("desc")
+                                                ? Sort.Direction.DESC
+                                                : Sort.Direction.ASC;
+
+                Pageable pageable = PageRequest.of(
+                                page,
+                                size,
+                                Sort.by(sortDirection, sortBy));
+
+                Page<Registration> result;
+                long activeRegistrations = registrationRepository.countBySessionIdAndStatusIn(
+                                sessionId,
+                                List.of(
+                                                RegistrationStatus.RESERVED,
+                                                RegistrationStatus.CONFIRMED,
+                                                RegistrationStatus.CHECKED_IN));
+
+                if (status != null && !search.isBlank()) {
+                        result = registrationRepository.searchBySessionAndStatus(
+                                        sessionId,
+                                        status,
+                                        search,
+                                        pageable);
+
+                } else if (status != null) {
+                        result = registrationRepository.findBySessionIdAndStatus(
+                                        sessionId,
+                                        status,
+                                        pageable);
+
+                } else if (!search.isBlank()) {
+                        result = registrationRepository.searchBySession(
+                                        sessionId,
+                                        search,
+                                        pageable);
+
+                } else {
+                        result = registrationRepository.findBySessionId(
+                                        sessionId,
+                                        pageable);
+                }
+
+                return RegistrationPageResponse.builder()
+                                .content(
+                                                result.getContent()
+                                                                .stream()
+                                                                .map(this::toResponse)
+                                                                .toList())
+                                .page(result.getNumber())
+                                .size(result.getSize())
+                                .totalElements(result.getTotalElements())
+                                .totalPages(result.getTotalPages())
+                                .activeRegistrations(activeRegistrations)
+                                .build();
+        }
 }
