@@ -20,11 +20,13 @@ public class SessionController {
     private final SessionService sessionService;
 
     @PostMapping("/events/{eventId}/sessions")
+    @PreAuthorize("hasRole('ORGANIZER')")
     public SessionResponse create(@PathVariable Long eventId, @Valid @RequestBody SessionRequest request) {
         return sessionService.create(eventId, request);
     }
 
     @GetMapping("/events/{eventId}/sessions")
+    
     public List<SessionResponse> getByEvent(@PathVariable Long eventId) {
         return sessionService.getByEvent(eventId);
     }
@@ -35,11 +37,13 @@ public class SessionController {
     }
 
     @PutMapping("/sessions/{id}")
+    @PreAuthorize("hasRole('ORGANIZER')")
     public SessionResponse update(@PathVariable Long id, @Valid @RequestBody SessionRequest request) {
         return sessionService.update(id, request);
     }
 
     @DeleteMapping("/sessions/{id}")
+    @PreAuthorize("hasRole('ORGANIZER')")
     public void delete(@PathVariable Long id) {
         sessionService.delete(id);
     }

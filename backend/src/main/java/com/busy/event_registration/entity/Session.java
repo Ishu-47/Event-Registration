@@ -33,6 +33,10 @@ public class Session {
     @Column(nullable = false)
     private Integer capacity;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean capacityAlertDismissed = false;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "event_id", nullable = false)
     private Event event;

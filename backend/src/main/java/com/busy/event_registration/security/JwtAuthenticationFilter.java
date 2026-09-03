@@ -24,25 +24,30 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
         String authorizationHeader = request.getHeader("Authorization");
-        if(authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")){
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
         String token = authorizationHeader.substring(7);
 
-        try{
+        try {
             Claims claims = jwtService.extractClaims(token);
             String userId = claims.getSubject();
             String role = claims.get("role", String.class);
 
-            var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
+            System.out.println("========== JWT DEBUG ==========");
+            System.out.println("User ID: " + userId);
+            System.out.println("JWT Role: " + role);
 
+            var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
+            System.out.println("Authorities: " + authorities);
             var authentication = new UsernamePasswordAuthenticationToken(userId, null, authorities);
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
-        } catch (Exception e){
+        } catch (Exception e) {
             SecurityContextHolder.clearContext();
         }
         filterChain.doFilter(request, response);

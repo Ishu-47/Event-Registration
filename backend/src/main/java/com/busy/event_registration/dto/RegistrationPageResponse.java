@@ -18,4 +18,7 @@ public class RegistrationPageResponse {
     private int totalPages;
 
     private long activeRegistrations;
+
+    private boolean atCapacity;
+    private boolean capacityAlertVisible;
 }

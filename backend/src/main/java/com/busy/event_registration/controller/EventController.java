@@ -13,12 +13,13 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/events")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ORGANIZER')")
+
 public class EventController {
 
     private final EventService eventService;
 
     @PostMapping
+    @PreAuthorize("hasRole('ORGANIZER')")
     public EventResponse create(@Valid @RequestBody EventRequest request) {
         return eventService.create(request);
     }
@@ -34,11 +35,13 @@ public class EventController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ORGANIZER')")
     public EventResponse update(@PathVariable Long id, @Valid @RequestBody EventRequest request) {
         return eventService.update(id, request);
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ORGANIZER')")
     public void delete(@PathVariable Long id) {
         eventService.delete(id);
     }

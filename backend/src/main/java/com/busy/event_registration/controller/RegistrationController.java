@@ -115,4 +115,16 @@ public class RegistrationController {
                 id,
                 authentication);
     }
+
+    @PostMapping("/sessions/{sessionId}/capacity-alert/dismiss")
+    public ResponseEntity<Void> dismissCapacityAlert(
+            @PathVariable Long sessionId,
+            Authentication authentication) {
+
+        registrationService.dismissCapacityAlert(
+                sessionId,
+                authentication);
+
+        return ResponseEntity.noContent().build();
+    }
 }

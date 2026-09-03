@@ -10,6 +10,7 @@ import com.busy.event_registration.repository.SessionStaffAssignmentRepository;
 import com.busy.event_registration.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -57,6 +58,8 @@ public class SessionStaffAssignmentService {
                 .toList();
     }
 
+    
+    @Transactional
     public void remove(Long sessionId, Long staffId) {
 
         assignmentRepository

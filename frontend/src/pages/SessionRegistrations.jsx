@@ -35,6 +35,7 @@ export default function SessionRegistrations() {
 
     // Capacity
     const [activeRegistrations, setActiveRegistrations] = useState(0);
+    const [capacityAlertVisible, setCapacityAlertVisible] = useState(false);
 
     // CSV
     const [csvFile, setCsvFile] = useState(null);
@@ -46,6 +47,27 @@ export default function SessionRegistrations() {
     const [historyLoading, setHistoryLoading] = useState(false);
 
     const token = localStorage.getItem("token");
+
+    function isOrganizer() {
+        if (!token) return false;
+
+        try {
+            const payload = JSON.parse(atob(token.split(".")[1]));
+            const values = [
+                payload.role,
+                ...(Array.isArray(payload.roles) ? payload.roles : []),
+                ...(Array.isArray(payload.authorities) ? payload.authorities : [])
+            ]
+                .filter(Boolean)
+                .map(String);
+
+            return values.some(value =>
+                value === "ORGANIZER" || value === "ROLE_ORGANIZER"
+            );
+        } catch {
+            return false;
+        }
+    }
 
     const availableSeats = Math.max(
         0,
@@ -128,6 +150,10 @@ export default function SessionRegistrations() {
 
             setActiveRegistrations(
                 registrationData.activeRegistrations || 0
+            );
+
+            setCapacityAlertVisible(
+                Boolean(registrationData.capacityAlertVisible)
             );
 
         } catch (err) {
@@ -226,6 +252,35 @@ export default function SessionRegistrations() {
 
             await load();
 
+        } catch (err) {
+            setError(err.message);
+        }
+    }
+
+    async function handleDismissCapacityAlert() {
+        try {
+            setError("");
+            setSuccess("");
+
+            const response = await fetch(
+                `${API_URL}/registrations/sessions/${sessionId}/capacity-alert/dismiss`,
+                {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            );
+
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                throw new Error(
+                    data.message || "Unable to dismiss capacity alert"
+                );
+            }
+
+            setCapacityAlertVisible(false);
+            setSuccess("Capacity alert dismissed.");
         } catch (err) {
             setError(err.message);
         }
@@ -465,11 +520,17 @@ export default function SessionRegistrations() {
 
                 {/* Back */}
 
+                {/* Back */}
+
                 <Link
-                    to={`/events/${session?.eventId}/sessions`}
+                    to={
+                        isOrganizer()
+                            ? `/events/${session?.eventId}/sessions`
+                            : "/my-sessions"
+                    }
                     className="text-sm text-gray-500 hover:text-white"
                 >
-                    ← Back to sessions
+                    ← {isOrganizer() ? "Back to sessions" : "Back to my sessions"}
                 </Link>
 
                 {/* Header */}
@@ -518,6 +579,31 @@ export default function SessionRegistrations() {
                     </button>
 
                 </div>
+
+                {/* Capacity Alert */}
+
+                {capacityAlertVisible && (
+                    <div className="mb-5 border border-yellow-700 bg-yellow-950/40 text-yellow-200 rounded-lg p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div>
+                            <p className="font-semibold">
+                                Session is at capacity
+                            </p>
+                            <p className="text-sm text-yellow-300/80 mt-1">
+                                No more attendees can be registered until a seat becomes available.
+                            </p>
+                        </div>
+
+                        {isOrganizer() && (
+                            <button
+                                type="button"
+                                onClick={handleDismissCapacityAlert}
+                                className="border border-yellow-700 px-4 py-2 rounded-lg text-sm font-semibold hover:border-yellow-500 whitespace-nowrap"
+                            >
+                                Dismiss
+                            </button>
+                        )}
+                    </div>
+                )}
 
                 {/* Error */}
 

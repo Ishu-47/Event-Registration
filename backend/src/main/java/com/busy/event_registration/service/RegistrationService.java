@@ -117,6 +117,15 @@ public class RegistrationService {
                                 authentication,
                                 "Registration created");
 
+                activeRegistrations++;
+
+                // If a seat is still available, reset any previous dismissal.
+                if (activeRegistrations < session.getCapacity()) {
+                        session.setCapacityAlertDismissed(false);
+                }
+
+                sessionRepository.save(session);
+
                 return toResponse(registration);
         }
 
@@ -159,6 +168,20 @@ public class RegistrationService {
                                         RegistrationStatus.EXPIRED,
                                         authentication,
                                         "Reservation expired before confirmation");
+
+                        // A seat has been released.
+                        Session session = registration.getSession();
+
+                        long activeRegistrations = registrationRepository.countBySessionIdAndStatusIn(
+                                        session.getId(),
+                                        List.of(
+                                                        RegistrationStatus.RESERVED,
+                                                        RegistrationStatus.CONFIRMED,
+                                                        RegistrationStatus.CHECKED_IN));
+
+                        updateCapacityAlert(session, activeRegistrations);
+
+                        sessionRepository.save(session);
 
                         throw new IllegalArgumentException(
                                         "Reservation has expired");
@@ -224,6 +247,19 @@ public class RegistrationService {
                                 RegistrationStatus.CANCELLED,
                                 authentication,
                                 "Registration cancelled");
+
+                Session session = registration.getSession();
+
+                long activeRegistrations = registrationRepository.countBySessionIdAndStatusIn(
+                                session.getId(),
+                                List.of(
+                                                RegistrationStatus.RESERVED,
+                                                RegistrationStatus.CONFIRMED,
+                                                RegistrationStatus.CHECKED_IN));
+
+                updateCapacityAlert(session, activeRegistrations);
+
+                sessionRepository.save(session);
 
                 return toResponse(registration);
         }
@@ -398,6 +434,13 @@ public class RegistrationService {
                                 activeRegistrations++;
                         }
 
+                        // Reset alert dismissal if a seat is available.
+                        if (activeRegistrations < session.getCapacity()) {
+                                session.setCapacityAlertDismissed(false);
+                        }
+
+                        sessionRepository.save(session);
+
                 } catch (IOException e) {
 
                         throw new IllegalArgumentException(
@@ -503,13 +546,12 @@ public class RegistrationService {
 
                 Page<Registration> result;
 
-                long activeRegistrations = registrationRepository
-                                .countBySessionIdAndStatusIn(
-                                                sessionId,
-                                                List.of(
-                                                                RegistrationStatus.RESERVED,
-                                                                RegistrationStatus.CONFIRMED,
-                                                                RegistrationStatus.CHECKED_IN));
+                long activeRegistrations = registrationRepository.countBySessionIdAndStatusIn(
+                                sessionId,
+                                List.of(
+                                                RegistrationStatus.RESERVED,
+                                                RegistrationStatus.CONFIRMED,
+                                                RegistrationStatus.CHECKED_IN));
 
                 if (status != null &&
                                 !search.isBlank()) {
@@ -545,6 +587,15 @@ public class RegistrationService {
                                                         pageable);
                 }
 
+                // Get session once
+                Session session = sessionRepository.findById(sessionId)
+                                .orElseThrow(() -> new IllegalArgumentException(
+                                                "Session not found"));
+
+                boolean atCapacity = activeRegistrations >= session.getCapacity();
+
+                boolean capacityAlertVisible = atCapacity && !session.isCapacityAlertDismissed();
+
                 return RegistrationPageResponse.builder()
                                 .content(
                                                 result.getContent()
@@ -553,12 +604,11 @@ public class RegistrationService {
                                                                 .toList())
                                 .page(result.getNumber())
                                 .size(result.getSize())
-                                .totalElements(
-                                                result.getTotalElements())
-                                .totalPages(
-                                                result.getTotalPages())
-                                .activeRegistrations(
-                                                activeRegistrations)
+                                .totalElements(result.getTotalElements())
+                                .totalPages(result.getTotalPages())
+                                .activeRegistrations(activeRegistrations)
+                                .atCapacity(atCapacity)
+                                .capacityAlertVisible(capacityAlertVisible)
                                 .build();
         }
 
@@ -593,6 +643,57 @@ public class RegistrationService {
                                 .build();
 
                 registrationHistoryRepository.save(history);
+        }
+
+        // =========================
+        // GET HISTORY
+        // =========================
+
+        public List<RegistrationHistoryResponse> getHistory(
+                        Long registrationId,
+                        Authentication authentication) {
+
+                Registration registration = registrationRepository
+                                .findById(registrationId)
+                                .orElseThrow(() -> new RegistrationNotFoundException(
+                                                "Registration not found"));
+
+                verifyCanManageSession(
+                                registration.getSession().getId(),
+                                authentication);
+
+                return registrationHistoryRepository
+                                .findByRegistrationIdOrderByCreatedAtAsc(registrationId)
+                                .stream()
+                                .map(history -> RegistrationHistoryResponse.builder()
+                                                .id(history.getId())
+                                                .oldStatus(history.getOldStatus())
+                                                .newStatus(history.getNewStatus())
+                                                .performedBy(history.getPerformedBy())
+                                                .notes(history.getNotes())
+                                                .createdAt(history.getCreatedAt())
+                                                .build())
+                                .toList();
+        }
+
+        // =========================
+        // CAPACITY ALERT
+        // =========================
+
+        private void updateCapacityAlert(
+                        Session session,
+                        long occupiedCount) {
+
+                if (occupiedCount >= session.getCapacity()) {
+                        // Session is still full.
+                        // Keep the current dismissed state.
+                        return;
+                }
+
+                // A seat became available.
+                // Reset the dismissal so the alert can appear
+                // the next time the session becomes full.
+                session.setCapacityAlertDismissed(false);
         }
 
         // =========================
@@ -664,30 +765,41 @@ public class RegistrationService {
                                 .build();
         }
 
-        public List<RegistrationHistoryResponse> getHistory(
-                        Long registrationId,
+        @Transactional
+        public void dismissCapacityAlert(
+                        Long sessionId,
                         Authentication authentication) {
 
-                Registration registration = registrationRepository
-                                .findById(registrationId)
-                                .orElseThrow(() -> new RegistrationNotFoundException(
-                                                "Registration not found"));
-
-                verifyCanManageSession(
-                                registration.getSession().getId(),
-                                authentication);
-
-                return registrationHistoryRepository
-                                .findByRegistrationIdOrderByCreatedAtAsc(registrationId)
+                String role = authentication
+                                .getAuthorities()
                                 .stream()
-                                .map(history -> RegistrationHistoryResponse.builder()
-                                                .id(history.getId())
-                                                .oldStatus(history.getOldStatus())
-                                                .newStatus(history.getNewStatus())
-                                                .performedBy(history.getPerformedBy())
-                                                .notes(history.getNotes())
-                                                .createdAt(history.getCreatedAt())
-                                                .build())
-                                .toList();
+                                .findFirst()
+                                .map(Object::toString)
+                                .orElse("");
+
+                if (!role.equals("ROLE_ORGANIZER")) {
+                        throw new AccessDeniedException(
+                                        "Only organizers can dismiss capacity alerts");
+                }
+
+                Session session = sessionRepository.findById(sessionId)
+                                .orElseThrow(() -> new IllegalArgumentException(
+                                                "Session not found"));
+
+                long activeRegistrations = registrationRepository.countBySessionIdAndStatusIn(
+                                sessionId,
+                                List.of(
+                                                RegistrationStatus.RESERVED,
+                                                RegistrationStatus.CONFIRMED,
+                                                RegistrationStatus.CHECKED_IN));
+
+                if (activeRegistrations < session.getCapacity()) {
+                        throw new IllegalArgumentException(
+                                        "Session is not currently at capacity");
+                }
+
+                session.setCapacityAlertDismissed(true);
+
+                sessionRepository.save(session);
         }
 }
