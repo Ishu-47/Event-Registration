@@ -40,6 +40,11 @@ export default function SessionRegistrations() {
     const [csvFile, setCsvFile] = useState(null);
     const [csvLoading, setCsvLoading] = useState(false);
 
+    // History
+    const [history, setHistory] = useState([]);
+    const [historyRegistration, setHistoryRegistration] = useState(null);
+    const [historyLoading, setHistoryLoading] = useState(false);
+
     const token = localStorage.getItem("token");
 
     const availableSeats = Math.max(
@@ -54,7 +59,6 @@ export default function SessionRegistrations() {
             setLoading(true);
             setError("");
 
-            // Load session details
             const sessionResponse = await fetch(
                 `${API_URL}/sessions/${sessionId}`,
                 {
@@ -76,7 +80,6 @@ export default function SessionRegistrations() {
 
             setSession(sessionData);
 
-            // Build registration query
             const params = new URLSearchParams();
 
             if (search.trim()) {
@@ -92,7 +95,6 @@ export default function SessionRegistrations() {
             params.append("page", page);
             params.append("size", size);
 
-            // Load registrations
             const registrationsResponse = await fetch(
                 `${API_URL}/registrations/sessions/${sessionId}?${params.toString()}`,
                 {
@@ -227,6 +229,50 @@ export default function SessionRegistrations() {
         } catch (err) {
             setError(err.message);
         }
+    }
+
+    // =========================
+    // HISTORY
+    // =========================
+
+    async function handleViewHistory(registration) {
+        setHistoryLoading(true);
+        setError("");
+        setHistoryRegistration(registration);
+        setHistory([]);
+
+        try {
+            const response = await fetch(
+                `${API_URL}/registrations/${registration.id}/history`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.message ||
+                    "Unable to load registration history"
+                );
+            }
+
+            setHistory(data || []);
+
+        } catch (err) {
+            setError(err.message);
+            setHistoryRegistration(null);
+        } finally {
+            setHistoryLoading(false);
+        }
+    }
+
+    function closeHistory() {
+        setHistoryRegistration(null);
+        setHistory([]);
     }
 
     // =========================
@@ -679,8 +725,6 @@ export default function SessionRegistrations() {
 
                     <div className="grid md:grid-cols-4 gap-4">
 
-                        {/* Search */}
-
                         <div className="md:col-span-2">
 
                             <label className="block text-sm text-gray-400 mb-2">
@@ -695,8 +739,6 @@ export default function SessionRegistrations() {
                             />
 
                         </div>
-
-                        {/* Status */}
 
                         <div>
 
@@ -738,8 +780,6 @@ export default function SessionRegistrations() {
 
                         </div>
 
-                        {/* Sort */}
-
                         <div>
 
                             <label className="block text-sm text-gray-400 mb-2">
@@ -769,8 +809,6 @@ export default function SessionRegistrations() {
                         </div>
 
                     </div>
-
-                    {/* Sort direction */}
 
                     <div className="mt-4">
 
@@ -836,8 +874,6 @@ export default function SessionRegistrations() {
                                         className="px-6 py-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4"
                                     >
 
-                                        {/* Attendee */}
-
                                         <div>
 
                                             <p className="font-medium">
@@ -851,13 +887,10 @@ export default function SessionRegistrations() {
                                             {registration.confirmationCode && (
 
                                                 <p className="text-xs text-gray-600 mt-2">
-
                                                     Code:{" "}
-
                                                     <span className="text-gray-400">
                                                         {registration.confirmationCode}
                                                     </span>
-
                                                 </p>
 
                                             )}
@@ -866,20 +899,15 @@ export default function SessionRegistrations() {
                                                 registration.expiresAt && (
 
                                                     <p className="text-xs text-yellow-500 mt-2">
-
                                                         Reserved until{" "}
-
                                                         {new Date(
                                                             registration.expiresAt
                                                         ).toLocaleTimeString()}
-
                                                     </p>
 
                                                 )}
 
                                         </div>
-
-                                        {/* Status + actions */}
 
                                         <div className="flex flex-wrap items-center gap-4">
 
@@ -890,6 +918,19 @@ export default function SessionRegistrations() {
                                             >
                                                 {registration.status}
                                             </span>
+
+                                            {/* History */}
+
+                                            <button
+                                                onClick={() =>
+                                                    handleViewHistory(
+                                                        registration
+                                                    )
+                                                }
+                                                className="text-sm text-gray-400 hover:text-white"
+                                            >
+                                                History
+                                            </button>
 
                                             {/* Confirm */}
 
@@ -1012,6 +1053,132 @@ export default function SessionRegistrations() {
                 </div>
 
             </div>
+
+            {/* =========================
+                HISTORY MODAL
+            ========================= */}
+
+            {historyRegistration && (
+
+                <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+
+                    <div className="bg-neutral-950 border border-neutral-800 rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
+
+                        <div className="px-6 py-5 border-b border-neutral-800 flex items-center justify-between">
+
+                            <div>
+
+                                <h2 className="text-xl font-semibold">
+                                    Registration History
+                                </h2>
+
+                                <p className="text-sm text-gray-500 mt-1">
+                                    {historyRegistration.name}
+                                    {" · "}
+                                    {historyRegistration.email}
+                                </p>
+
+                            </div>
+
+                            <button
+                                onClick={closeHistory}
+                                className="text-gray-500 hover:text-white text-xl"
+                            >
+                                ×
+                            </button>
+
+                        </div>
+
+                        <div className="p-6 overflow-y-auto max-h-[60vh]">
+
+                            {historyLoading ? (
+
+                                <div className="py-10 text-center text-gray-500">
+                                    Loading history...
+                                </div>
+
+                            ) : history.length === 0 ? (
+
+                                <div className="py-10 text-center text-gray-500">
+                                    No history found.
+                                </div>
+
+                            ) : (
+
+                                <div className="relative ml-2">
+
+                                    <div className="absolute left-[7px] top-2 bottom-2 w-px bg-neutral-800" />
+
+                                    <div className="space-y-8">
+
+                                        {history.map(
+                                            item => (
+
+                                                <div
+                                                    key={item.id}
+                                                    className="relative pl-8"
+                                                >
+
+                                                    <div className="absolute left-0 top-1.5 w-4 h-4 rounded-full bg-white border-4 border-neutral-950" />
+
+                                                    <div>
+
+                                                        <div className="flex flex-wrap items-center gap-2">
+
+                                                            {item.oldStatus && (
+
+                                                                <>
+                                                                    <span className="text-sm text-gray-500">
+                                                                        {item.oldStatus}
+                                                                    </span>
+
+                                                                    <span className="text-gray-600">
+                                                                        →
+                                                                    </span>
+                                                                </>
+
+                                                            )}
+
+                                                            <span className="text-sm font-semibold">
+                                                                {item.newStatus}
+                                                            </span>
+
+                                                        </div>
+
+                                                        {item.notes && (
+
+                                                            <p className="text-sm text-gray-400 mt-1">
+                                                                {item.notes}
+                                                            </p>
+
+                                                        )}
+
+                                                        <p className="text-xs text-gray-600 mt-2">
+                                                            {new Date(
+                                                                item.createdAt
+                                                            ).toLocaleString()}
+                                                        </p>
+
+                                                    </div>
+
+                                                </div>
+
+                                            )
+                                        )}
+
+                                    </div>
+
+                                </div>
+
+                            )}
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            )}
 
         </div>
     );

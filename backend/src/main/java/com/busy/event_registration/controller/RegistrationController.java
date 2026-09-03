@@ -13,6 +13,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+
+import com.busy.event_registration.dto.RegistrationHistoryResponse;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -101,5 +104,15 @@ public class RegistrationController {
                                 + "-registrations.csv\"")
                 .contentType(MediaType.parseMediaType("text/csv"))
                 .body(csv.getBytes(StandardCharsets.UTF_8));
+    }
+
+    @GetMapping("/{id}/history")
+    public List<RegistrationHistoryResponse> getHistory(
+            @PathVariable Long id,
+            Authentication authentication) {
+
+        return registrationService.getHistory(
+                id,
+                authentication);
     }
 }
