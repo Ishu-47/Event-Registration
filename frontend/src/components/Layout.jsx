@@ -57,12 +57,7 @@ export default function Layout() {
                         </Link>
                     )}
 
-                    <Link
-                        to="/registrations"
-                        className="block px-4 py-3 rounded-lg text-gray-300 hover:bg-neutral-900 hover:text-white"
-                    >
-                        Registrations
-                    </Link>
+                    
 
 
 
