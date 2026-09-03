@@ -6,6 +6,14 @@ import com.busy.event_registration.service.RegistrationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
+import com.busy.event_registration.dto.CsvImportResponse;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.nio.charset.StandardCharsets;
+
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import com.busy.event_registration.dto.RegistrationPageResponse;
@@ -62,5 +70,36 @@ public class RegistrationController {
                 direction,
                 page,
                 size);
+    }
+
+    @PostMapping(value = "/sessions/{sessionId}/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public CsvImportResponse importCsv(
+            @PathVariable Long sessionId,
+            @RequestParam("file") MultipartFile file,
+            Authentication authentication) {
+
+        return registrationService.importCsv(
+                sessionId,
+                file,
+                authentication);
+    }
+
+    @GetMapping("/sessions/{sessionId}/export")
+    public ResponseEntity<byte[]> exportCsv(
+            @PathVariable Long sessionId,
+            Authentication authentication) {
+
+        String csv = registrationService.exportCsv(
+                sessionId,
+                authentication);
+
+        return ResponseEntity.ok()
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"session-"
+                                + sessionId
+                                + "-registrations.csv\"")
+                .contentType(MediaType.parseMediaType("text/csv"))
+                .body(csv.getBytes(StandardCharsets.UTF_8));
     }
 }

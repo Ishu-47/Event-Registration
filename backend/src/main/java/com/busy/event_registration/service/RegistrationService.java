@@ -21,6 +21,20 @@ import org.springframework.data.domain.Sort;
 
 import com.busy.event_registration.dto.RegistrationPageResponse;
 
+import com.busy.event_registration.dto.CsvImportResponse;
+
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+
+import org.apache.commons.csv.CSVPrinter;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -285,5 +299,141 @@ public class RegistrationService {
                                 .totalPages(result.getTotalPages())
                                 .activeRegistrations(activeRegistrations)
                                 .build();
+        }
+
+        @Transactional
+        public CsvImportResponse importCsv(
+                        Long sessionId,
+                        MultipartFile file,
+                        Authentication authentication) {
+
+                verifyCanManageSession(sessionId, authentication);
+
+                Session session = sessionRepository.findByIdForUpdate(sessionId)
+                                .orElseThrow(() -> new IllegalArgumentException("Session not found"));
+
+                if (file.isEmpty()) {
+                        throw new IllegalArgumentException("CSV file is empty");
+                }
+
+                int imported = 0;
+                int failed = 0;
+                long activeRegistrations = registrationRepository.countBySessionIdAndStatusIn(
+                                sessionId,
+                                List.of(
+                                                RegistrationStatus.RESERVED,
+                                                RegistrationStatus.CONFIRMED,
+                                                RegistrationStatus.CHECKED_IN));
+
+                List<String> errors = new ArrayList<>();
+
+                try (
+                                CSVParser parser = CSVParser.parse(
+                                                file.getInputStream(),
+                                                StandardCharsets.UTF_8,
+                                                CSVFormat.DEFAULT.builder()
+                                                                .setHeader()
+                                                                .setSkipHeaderRecord(true)
+                                                                .setIgnoreHeaderCase(true)
+                                                                .setTrim(true)
+                                                                .get())) {
+
+                        for (CSVRecord record : parser) {
+
+                                long rowNumber = record.getRecordNumber() + 1;
+
+                                String name = record.get("name");
+                                String email = record.get("email");
+
+                                if (name == null || name.isBlank()) {
+                                        errors.add("Row " + rowNumber + ": Name is required");
+                                        failed++;
+                                        continue;
+                                }
+
+                                if (email == null || email.isBlank()
+                                                || !email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+
+                                        errors.add("Row " + rowNumber + ": Invalid email");
+                                        failed++;
+                                        continue;
+                                }
+
+                                email = email.toLowerCase().trim();
+
+                                if (registrationRepository
+                                                .findBySessionIdAndEmail(sessionId, email)
+                                                .isPresent()) {
+
+                                        errors.add("Row " + rowNumber + ": Duplicate email - " + email);
+                                        failed++;
+                                        continue;
+                                }
+
+                                if (activeRegistrations >= session.getCapacity()) {
+                                        errors.add("Row " + rowNumber + ": Session capacity exceeded");
+                                        failed++;
+                                        continue;
+                                }
+
+                                LocalDateTime now = LocalDateTime.now();
+
+                                Registration registration = Registration.builder()
+                                                .session(session)
+                                                .name(name.trim())
+                                                .email(email)
+                                                .status(RegistrationStatus.RESERVED)
+                                                .confirmationCode(generateConfirmationCode())
+                                                .reservedAt(now)
+                                                .expiresAt(now.plusMinutes(5))
+                                                .build();
+
+                                registrationRepository.save(registration);
+
+                                imported++;
+                                activeRegistrations++;
+                        }
+
+                } catch (IOException e) {
+                        throw new IllegalArgumentException("Unable to read CSV file");
+                }
+
+                return CsvImportResponse.builder()
+                                .imported(imported)
+                                .failed(failed)
+                                .errors(errors)
+                                .build();
+        }
+
+        @Transactional(readOnly = true)
+        public String exportCsv(
+                        Long sessionId,
+                        Authentication authentication) {
+
+                verifyCanManageSession(sessionId, authentication);
+
+                List<Registration> registrations = registrationRepository.findBySessionId(sessionId);
+
+                StringWriter writer = new StringWriter();
+
+                try (CSVPrinter printer = new CSVPrinter(
+                                writer,
+                                CSVFormat.DEFAULT.builder()
+                                                .setHeader("name", "email", "status", "confirmationCode")
+                                                .get())) {
+
+                        for (Registration registration : registrations) {
+                                printer.printRecord(
+                                                registration.getName(),
+                                                registration.getEmail(),
+                                                registration.getStatus(),
+                                                registration.getConfirmationCode());
+                        }
+
+                } catch (IOException e) {
+                        throw new IllegalStateException("Unable to create CSV file");
+                }
+
+                return writer.toString();
         }
 }

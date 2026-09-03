@@ -56,4 +56,5 @@ public interface RegistrationRepository extends JpaRepository<Registration, Long
                 WHERE r.status IN :statuses
             """)
     List<Registration> findActiveRegistrations(@Param("statuses") List<RegistrationStatus> statuses);
+    List<Registration> findBySessionId(Long sessionId);
 }

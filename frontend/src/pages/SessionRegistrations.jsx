@@ -4,7 +4,6 @@ import { Link, useParams } from "react-router-dom";
 const API_URL = "http://localhost:8080/api";
 
 export default function SessionRegistrations() {
-
     const { sessionId } = useParams();
 
     const [registrations, setRegistrations] = useState([]);
@@ -21,8 +20,6 @@ export default function SessionRegistrations() {
         email: "",
     });
 
-    
-
     const [search, setSearch] = useState("");
     const [status, setStatus] = useState("");
 
@@ -30,7 +27,6 @@ export default function SessionRegistrations() {
     const [direction, setDirection] = useState("asc");
 
     // Pagination
-
     const [page, setPage] = useState(0);
     const [size] = useState(10);
 
@@ -38,17 +34,13 @@ export default function SessionRegistrations() {
     const [totalPages, setTotalPages] = useState(0);
 
     // Capacity
-
     const [activeRegistrations, setActiveRegistrations] = useState(0);
 
-    const token = localStorage.getItem("token");
+    // CSV
+    const [csvFile, setCsvFile] = useState(null);
+    const [csvLoading, setCsvLoading] = useState(false);
 
-    /*
-     * Capacity calculation.
-     *
-     * These are derived from the current session and
-     * active registration count.
-     */
+    const token = localStorage.getItem("token");
 
     const availableSeats = Math.max(
         0,
@@ -57,18 +49,12 @@ export default function SessionRegistrations() {
 
     const isFull = availableSeats === 0;
 
-
     async function load() {
-
         try {
-
             setLoading(true);
             setError("");
 
-            /*
-             * Load session details.
-             */
-
+            // Load session details
             const sessionResponse = await fetch(
                 `${API_URL}/sessions/${sessionId}`,
                 {
@@ -86,91 +72,45 @@ export default function SessionRegistrations() {
                 );
             }
 
-            const sessionData =
-                await sessionResponse.json();
+            const sessionData = await sessionResponse.json();
 
             setSession(sessionData);
 
-
-            /*
-             * Build registration query.
-             */
-
+            // Build registration query
             const params = new URLSearchParams();
 
             if (search.trim()) {
-                params.append(
-                    "search",
-                    search.trim()
-                );
+                params.append("search", search.trim());
             }
 
             if (status) {
-                params.append(
-                    "status",
-                    status
-                );
+                params.append("status", status);
             }
 
-            params.append(
-                "sortBy",
-                sortBy
+            params.append("sortBy", sortBy);
+            params.append("direction", direction);
+            params.append("page", page);
+            params.append("size", size);
+
+            // Load registrations
+            const registrationsResponse = await fetch(
+                `${API_URL}/registrations/sessions/${sessionId}?${params.toString()}`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
             );
-
-            params.append(
-                "direction",
-                direction
-            );
-
-            params.append(
-                "page",
-                page
-            );
-
-            params.append(
-                "size",
-                size
-            );
-
-
-            /*
-             * Load registrations.
-             */
-
-            const registrationsResponse =
-                await fetch(
-                    `${API_URL}/registrations/sessions/${sessionId}?${params.toString()}`,
-                    {
-                        headers: {
-                            Authorization: `Bearer ${token}`,
-                        },
-                    }
-                );
 
             const registrationData =
                 await registrationsResponse.json();
 
             if (!registrationsResponse.ok) {
-
                 throw new Error(
                     registrationData.message ||
                     "Unable to load registrations"
                 );
             }
-
-
-            /*
-             * Backend returns:
-             *
-             * {
-             *   content: [],
-             *   page: 0,
-             *   size: 10,
-             *   totalElements: 20,
-             *   totalPages: 2,
-             *   activeRegistrations: 5
-             * }
-             */
 
             setRegistrations(
                 registrationData.content || []
@@ -189,15 +129,11 @@ export default function SessionRegistrations() {
             );
 
         } catch (err) {
-
             setError(err.message);
-
         } finally {
-
             setLoading(false);
         }
     }
-
 
     useEffect(() => {
         load();
@@ -210,16 +146,13 @@ export default function SessionRegistrations() {
         page,
     ]);
 
-
     async function handleRegister(e) {
-
         e.preventDefault();
 
         setError("");
         setSuccess("");
 
         try {
-
             const response = await fetch(
                 `${API_URL}/registrations/sessions/${sessionId}`,
                 {
@@ -235,7 +168,6 @@ export default function SessionRegistrations() {
             const data = await response.json();
 
             if (!response.ok) {
-
                 throw new Error(
                     data.message ||
                     "Registration failed"
@@ -253,27 +185,17 @@ export default function SessionRegistrations() {
 
             setShowForm(false);
 
-            /*
-             * Return to first page so the new
-             * registration can be seen.
-             */
-
             setPage(0);
 
             await load();
 
         } catch (err) {
-
             setError(err.message);
-
         }
     }
 
-
     async function action(url, successMessage) {
-
         try {
-
             setError("");
             setSuccess("");
 
@@ -290,7 +212,6 @@ export default function SessionRegistrations() {
             const data = await response.json();
 
             if (!response.ok) {
-
                 throw new Error(
                     data.message ||
                     "Action failed"
@@ -304,17 +225,148 @@ export default function SessionRegistrations() {
             await load();
 
         } catch (err) {
-
             setError(err.message);
-
         }
     }
 
+    // =========================
+    // CSV IMPORT
+    // =========================
+
+    function handleCsvFileChange(e) {
+        const file = e.target.files?.[0];
+
+        setCsvFile(file || null);
+        setError("");
+        setSuccess("");
+    }
+
+    async function handleCsvImport() {
+        if (!csvFile) {
+            setError("Please select a CSV file.");
+            return;
+        }
+
+        setError("");
+        setSuccess("");
+        setCsvLoading(true);
+
+        try {
+            const formData = new FormData();
+
+            formData.append("file", csvFile);
+
+            const response = await fetch(
+                `${API_URL}/registrations/sessions/${sessionId}/import`,
+                {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: formData,
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.message ||
+                    "CSV import failed"
+                );
+            }
+
+            let message =
+                `CSV import complete: ${data.imported} imported, ${data.failed} failed.`;
+
+            if (data.errors && data.errors.length > 0) {
+                message += ` ${data.errors.join(" | ")}`;
+            }
+
+            if (data.failed > 0) {
+                setError(message);
+            } else {
+                setSuccess(message);
+            }
+
+            setCsvFile(null);
+
+            const fileInput =
+                document.getElementById("csv-file");
+
+            if (fileInput) {
+                fileInput.value = "";
+            }
+
+            setPage(0);
+
+            await load();
+
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setCsvLoading(false);
+        }
+    }
+
+    // =========================
+    // CSV EXPORT
+    // =========================
+
+    async function handleCsvExport() {
+        setError("");
+        setSuccess("");
+        setCsvLoading(true);
+
+        try {
+            const response = await fetch(
+                `${API_URL}/registrations/sessions/${sessionId}/export`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            );
+
+            if (!response.ok) {
+                const data =
+                    await response.json().catch(() => ({}));
+
+                throw new Error(
+                    data.message ||
+                    "CSV export failed"
+                );
+            }
+
+            const blob = await response.blob();
+
+            const url = window.URL.createObjectURL(blob);
+
+            const link = document.createElement("a");
+
+            link.href = url;
+            link.download =
+                `session-${sessionId}-registrations.csv`;
+
+            document.body.appendChild(link);
+
+            link.click();
+
+            link.remove();
+
+            window.URL.revokeObjectURL(url);
+
+            setSuccess("CSV exported successfully.");
+
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setCsvLoading(false);
+        }
+    }
 
     function getStatusClass(status) {
-
         switch (status) {
-
             case "CONFIRMED":
                 return "border-green-800 text-green-400 bg-green-950/30";
 
@@ -335,43 +387,30 @@ export default function SessionRegistrations() {
         }
     }
 
-
     function handleSearchChange(e) {
-
         setSearch(e.target.value);
-
         setPage(0);
     }
-
 
     function handleStatusChange(e) {
-
         setStatus(e.target.value);
-
         setPage(0);
     }
-
 
     function handleSortChange(e) {
-
         setSortBy(e.target.value);
-
         setPage(0);
     }
 
-
     function handleDirectionChange() {
-
-        setDirection(
-            current =>
-                current === "asc"
-                    ? "desc"
-                    : "asc"
+        setDirection(current =>
+            current === "asc"
+                ? "desc"
+                : "asc"
         );
 
         setPage(0);
     }
-
 
     return (
         <div className="p-8">
@@ -386,7 +425,6 @@ export default function SessionRegistrations() {
                 >
                     ← Back to sessions
                 </Link>
-
 
                 {/* Header */}
 
@@ -417,15 +455,11 @@ export default function SessionRegistrations() {
 
                     </div>
 
-
                     <button
                         onClick={() => {
-
                             setError("");
                             setSuccess("");
-
                             setShowForm(!showForm);
-
                         }}
                         disabled={isFull}
                         className="bg-white text-black px-5 py-3 rounded-lg font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
@@ -439,7 +473,6 @@ export default function SessionRegistrations() {
 
                 </div>
 
-
                 {/* Error */}
 
                 {error && (
@@ -450,7 +483,6 @@ export default function SessionRegistrations() {
 
                 )}
 
-
                 {/* Success */}
 
                 {success && (
@@ -460,7 +492,6 @@ export default function SessionRegistrations() {
                     </div>
 
                 )}
-
 
                 {/* Capacity statistics */}
 
@@ -478,7 +509,6 @@ export default function SessionRegistrations() {
 
                     </div>
 
-
                     <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6">
 
                         <p className="text-gray-500 text-sm">
@@ -490,7 +520,6 @@ export default function SessionRegistrations() {
                         </p>
 
                     </div>
-
 
                     <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6">
 
@@ -506,6 +535,71 @@ export default function SessionRegistrations() {
 
                 </div>
 
+                {/* CSV Import / Export */}
+
+                <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 mb-8">
+
+                    <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5">
+
+                        <div>
+
+                            <h2 className="text-xl font-semibold">
+                                CSV Import / Export
+                            </h2>
+
+                            <p className="text-sm text-gray-500 mt-1">
+                                Import attendees using a CSV with
+                                <span className="text-gray-300">
+                                    {" "}name,email
+                                </span>
+                                {" "}columns.
+                            </p>
+
+                            <div className="mt-4 flex flex-col sm:flex-row gap-3">
+
+                                <input
+                                    id="csv-file"
+                                    type="file"
+                                    accept=".csv,text/csv"
+                                    onChange={handleCsvFileChange}
+                                    className="block text-sm text-gray-400 file:mr-4 file:rounded-lg file:border-0 file:bg-white file:px-4 file:py-2 file:text-sm file:font-semibold file:text-black hover:file:bg-gray-200"
+                                />
+
+                                <button
+                                    type="button"
+                                    onClick={handleCsvImport}
+                                    disabled={!csvFile || csvLoading}
+                                    className="bg-white text-black px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                    {csvLoading
+                                        ? "Processing..."
+                                        : "Import CSV"}
+                                </button>
+
+                            </div>
+
+                            {csvFile && (
+
+                                <p className="text-xs text-gray-500 mt-2">
+                                    Selected: {csvFile.name}
+                                </p>
+
+                            )}
+
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={handleCsvExport}
+                            disabled={csvLoading}
+                            className="border border-neutral-700 px-5 py-2.5 rounded-lg text-sm font-semibold hover:border-neutral-500 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            Export CSV
+                        </button>
+
+                    </div>
+
+                </div>
 
                 {/* Registration form */}
 
@@ -519,7 +613,6 @@ export default function SessionRegistrations() {
                         <h2 className="text-xl font-semibold">
                             Register attendee
                         </h2>
-
 
                         <div>
 
@@ -542,7 +635,6 @@ export default function SessionRegistrations() {
                             />
 
                         </div>
-
 
                         <div>
 
@@ -567,7 +659,6 @@ export default function SessionRegistrations() {
 
                         </div>
 
-
                         <button
                             type="submit"
                             disabled={isFull}
@@ -581,7 +672,6 @@ export default function SessionRegistrations() {
                     </form>
 
                 )}
-
 
                 {/* Search / Filters */}
 
@@ -605,7 +695,6 @@ export default function SessionRegistrations() {
                             />
 
                         </div>
-
 
                         {/* Status */}
 
@@ -649,7 +738,6 @@ export default function SessionRegistrations() {
 
                         </div>
 
-
                         {/* Sort */}
 
                         <div>
@@ -682,7 +770,6 @@ export default function SessionRegistrations() {
 
                     </div>
 
-
                     {/* Sort direction */}
 
                     <div className="mt-4">
@@ -701,7 +788,6 @@ export default function SessionRegistrations() {
 
                 </div>
 
-
                 {/* Attendees */}
 
                 <div className="bg-neutral-950 border border-neutral-800 rounded-2xl overflow-hidden">
@@ -717,7 +803,6 @@ export default function SessionRegistrations() {
                         </p>
 
                     </div>
-
 
                     {loading ? (
 
@@ -763,7 +848,6 @@ export default function SessionRegistrations() {
                                                 {registration.email}
                                             </p>
 
-
                                             {registration.confirmationCode && (
 
                                                 <p className="text-xs text-gray-600 mt-2">
@@ -777,7 +861,6 @@ export default function SessionRegistrations() {
                                                 </p>
 
                                             )}
-
 
                                             {registration.status === "RESERVED" &&
                                                 registration.expiresAt && (
@@ -796,7 +879,6 @@ export default function SessionRegistrations() {
 
                                         </div>
 
-
                                         {/* Status + actions */}
 
                                         <div className="flex flex-wrap items-center gap-4">
@@ -808,7 +890,6 @@ export default function SessionRegistrations() {
                                             >
                                                 {registration.status}
                                             </span>
-
 
                                             {/* Confirm */}
 
@@ -829,7 +910,6 @@ export default function SessionRegistrations() {
 
                                                 )}
 
-
                                             {/* Check in */}
 
                                             {registration.status ===
@@ -848,7 +928,6 @@ export default function SessionRegistrations() {
                                                     </button>
 
                                                 )}
-
 
                                             {/* Cancel */}
 
@@ -884,7 +963,6 @@ export default function SessionRegistrations() {
 
                     )}
 
-
                     {/* Pagination */}
 
                     {totalPages > 1 && (
@@ -894,7 +972,6 @@ export default function SessionRegistrations() {
                             <p className="text-sm text-gray-500">
                                 Page {page + 1} of {totalPages}
                             </p>
-
 
                             <div className="flex items-center gap-2">
 
@@ -910,7 +987,6 @@ export default function SessionRegistrations() {
                                 >
                                     ← Previous
                                 </button>
-
 
                                 <button
                                     disabled={
