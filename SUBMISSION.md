@@ -4,7 +4,7 @@
 
 | Item | Details |
 |---|---|
-| GitHub Repository | [https://github.com/Ishu-47/Event-RegistrationREPLACE_WITH_GITHUB_URL] |
+| GitHub Repository | [https://github.com/Ishu-47/Event-Registration] |
 | Live Application | [https://event-registration-jet.vercel.app/] |
 | Backend | Spring Boot |
 | Frontend | React |
