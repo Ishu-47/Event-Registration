@@ -240,9 +240,9 @@ Use this account to demonstrate:
 
 ## Check-in Staff
 
-**Email:** `[STAFF_EMAIL]`
+**Email:** `[staff@gmail.com]`
 
-**Password:** `[STAFF_PASSWORD]`
+**Password:** `[password123]`
 
 Use this account to demonstrate:
 
