@@ -256,6 +256,19 @@ Use this account to demonstrate:
 - Capacity alerts
 - Organizer dashboard
 
+
+### Creating another Organizer
+
+To demonstrate the Organizer invitation flow:
+
+1. Login using the Demo Organizer account.
+2. Create an Organizer invitation for a new email address.
+3. Open the generated invitation link.
+4. Register using that invited email address.
+5. Login with the newly created Organizer account.
+
+The invitation link is valid for 24 hours and is intended for one-time use.
+
 ---
 
 ## Check-in Staff
