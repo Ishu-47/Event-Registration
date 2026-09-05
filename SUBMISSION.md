@@ -4,8 +4,8 @@
 
 | Item | Details |
 |---|---|
-| GitHub Repository | [REPLACE_WITH_GITHUB_URL] |
-| Live Application | [REPLACE_WITH_LIVE_APP_URL] |
+| GitHub Repository | [https://github.com/Ishu-47/Event-RegistrationREPLACE_WITH_GITHUB_URL] |
+| Live Application | [https://event-registration-jet.vercel.app/] |
 | Backend | Spring Boot |
 | Frontend | React |
 | Database | PostgreSQL |
@@ -221,9 +221,9 @@ This allows the alert to represent the current full-capacity state rather than p
 
 ## Organizer
 
-**Email:** `[ORGANIZER_EMAIL]`
+**Email:** `[organizer@test.com]`
 
-**Password:** `[ORGANIZER_PASSWORD]`
+**Password:** `[password123]`
 
 Use this account to demonstrate:
 
@@ -417,13 +417,24 @@ High-level structure:
 
 # Deployment
 
-The application is intended to be deployed using free-tier hosting where possible.
+## Deployment
 
-The deployed application may experience cold starts depending on the hosting provider.
+The application is deployed using free-tier hosting:
 
-If the live application is temporarily asleep, waiting for the backend to wake up before retrying requests may be necessary.
+* **Frontend:** Vercel
+* **Backend:** Railway Free plan
+* **Database:** Neon PostgreSQL
 
-Database credentials, JWT secrets, and other sensitive configuration values are provided through environment variables rather than committed to Git.
+The Railway Free plan provides limited monthly usage, so the backend may be temporarily unavailable or slower to respond after periods of inactivity. When the service is sleeping, the first request may take a little longer while the backend starts again.
+
+The application is configured to use environment variables for database credentials, JWT secrets, and other sensitive configuration values. No credentials or secrets are committed to the repository.
+
+### Live Application
+
+Frontend: https://event-registration-jet.vercel.app/
+
+Backend API: https://event-registration-production-21dc.up.railway.app/
+
 
 ---
 
@@ -502,8 +513,8 @@ Before submitting, verify:
 
 **GitHub Repository**
 
-[REPLACE_WITH_GITHUB_URL]
+[https://github.com/Ishu-47/Event-Registration]
 
 **Live Application**
 
-[REPLACE_WITH_LIVE_APP_URL]
+[https://event-registration-jet.vercel.app/]

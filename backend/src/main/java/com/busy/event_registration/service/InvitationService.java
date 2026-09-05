@@ -32,7 +32,7 @@ public class InvitationService {
 
         invitationRepository.save(invitation);
 
-        String registrationLink = "http://localhost:5173/register?invite=" + token;
+        String registrationLink = "https://event-registration-jet.vercel.app/register?invite=" + token;
 
         return new InvitationResponse(invitation.getEmail(), token, registrationLink, expiresAt);
     }
