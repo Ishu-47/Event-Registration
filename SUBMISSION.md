@@ -41,9 +41,29 @@ Implemented:
 - Organizer invitation flow
 - Role-based backend authorization
 
-Regular registration creates a Check-in Staff account.
+#### Account Creation Behavior
 
-Organizer accounts are created through the organizer invitation flow.
+Regular registration creates a **Check-in Staff** account.
+
+Organizer accounts are not created through the normal registration flow. An existing Organizer creates an Organizer invitation for a specific email address.
+
+The invitation flow works as follows:
+
+1. Login as an Organizer.
+2. Use the Organizer invitation feature to enter the email address of the new Organizer.
+3. The backend generates a unique invitation token with a 24-hour expiry.
+4. The application generates an invitation registration link.
+5. Open the generated invitation link.
+6. The registration page recognizes the invitation token and allows the invited email to create an **Organizer** account.
+7. The invitation token is marked as used after successful registration and cannot be reused.
+
+Example invitation link:
+
+`https://event-registration-jet.vercel.app/register?invite=<invitation-token>`
+
+The invited user must register using the email address for which the invitation was created.
+
+This prevents a user from simply selecting the Organizer role through the normal registration form.
 
 ---
 
@@ -442,26 +462,45 @@ Backend API: https://event-registration-production-21dc.up.railway.app/
 
 A quick demonstration can follow this sequence:
 
-1. Login as Organizer.
-2. View the organizer dashboard.
-3. Create/view an event.
-4. Open the event's sessions.
-5. Create a session with a small capacity.
-6. Assign Check-in Staff to the session.
-7. Login as Check-in Staff.
-8. Open assigned sessions.
-9. Open registrations for the assigned session.
-10. Create a registration.
-11. Confirm the registration.
-12. Check in the attendee.
-13. Open registration history.
-14. Test search/filter/sort/pagination.
-15. Test CSV import/export.
-16. Return to Organizer.
-17. Fill a session to capacity.
-18. Demonstrate the capacity alert.
-19. Dismiss the alert.
-20. Cancel/expire a registration and demonstrate capacity becoming available.
+### Account and Organizer Invitation
+
+1. Login as the existing Demo Organizer.
+2. Open the Organizer invitation feature.
+3. Enter the email address for a new Organizer.
+4. Generate the Organizer invitation link.
+5. Copy/open the generated invitation link.
+6. Complete registration using the invited email address.
+7. Login using the newly created Organizer account.
+8. Verify that the account has Organizer permissions.
+
+### Organizer Workflow
+
+9. View the Organizer dashboard.
+10. Create/view an event.
+11. Open the event's sessions.
+12. Create a session with a small capacity.
+13. Assign Check-in Staff to the session.
+
+### Check-in Staff Workflow
+
+14. Login as Check-in Staff.
+15. Open assigned sessions.
+16. Open registrations for the assigned session.
+17. Create a registration.
+18. Confirm the registration.
+19. Check in the attendee.
+20. Open registration history.
+21. Test search/filter/sort/pagination.
+22. Test CSV import/export.
+
+### Capacity Workflow
+
+23. Return to Organizer.
+24. Fill a session to capacity.
+25. Demonstrate the capacity alert.
+26. Dismiss the alert.
+27. Cancel/expire a registration and demonstrate capacity becoming available.
+28. Fill the session again and demonstrate that the capacity alert reappears.
 
 ---
 
