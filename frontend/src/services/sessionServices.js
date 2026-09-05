@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:8080/api";
+const API_URL = "https://event-registration-production-21dc.up.railway.app/api";
 
 export async function getMySessions() {
     const token = localStorage.getItem("token");

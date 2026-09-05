@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-const API_URL = "http://localhost:8080/api";
+const API_URL = "https://event-registration-production-21dc.up.railway.app/api";
 
 export default function OrganizerInvite() {
 

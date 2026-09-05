@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:8080/api";
+const API_URL = "https://event-registration-production-21dc.up.railway.app/api";
 
 export async function login(email, password){
     const response = await fetch(`${API_URL}/auth/login`, {
